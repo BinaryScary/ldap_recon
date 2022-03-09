@@ -1,0 +1,46 @@
+[
+    {
+        "name": "Non-Disabled Accounts",
+        "base_dn": "",
+        "query": "(&(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))",
+        "attr": [
+            "sAMAccountName",
+            "userPrincipalName",
+            "memberOf",
+            "homeDirectory"
+        ]
+    },
+    {
+        "name": "Disabled Accounts",
+        "base_dn": "",
+        "query": "(&(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))",
+        "attr": [
+            "sAMAccountName",
+            "userPrincipalName",
+            "memberOf"
+        ]
+    },
+    {
+        "name": "Groups",
+        "base_dn": "",
+        "query": "(objectClass=group)",
+        "attr": [
+            "sAMAccountName",
+            "userPrincipalName",
+            "memberOf"
+        ]
+    },
+    {
+        "name": "Computers",
+        "base_dn": "",
+        "query": "(objectClass=computer)",
+        "attr": [
+            "name",
+            "dNSHostname",
+            "operatingSystem",
+            "operatingSystemVersion",
+            "lastLogonTimestamp",
+            "servicePrincipalName"
+        ]
+    }
+]
