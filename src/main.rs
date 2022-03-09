@@ -6,6 +6,9 @@ use chrono::{DateTime, Duration, Utc};
 use clap::Parser;
 use itertools::Itertools;
 
+// TODO: make queries loop asynchronous
+// TODO: offline ldap queries with database clone, since all custom queries are sent to LDAP service cleartext, better to send wildcard query and parse offline
+// TODO: make dynamic query strings programatic, check for integer inbetween '[-' and 'DAYS]' or RFC2822 time
 // TODO: rootdse, dn argument, appropriate attributes for certs
 
 // query struct
@@ -144,7 +147,6 @@ async fn main() -> Result<()> {
     let ad_month = u128::try_from(Duration::days(30).num_nanoseconds().unwrap()).unwrap() / 100;
     let ad_week = u128::try_from(Duration::days(7).num_nanoseconds().unwrap()).unwrap() / 100;
     
-    // TODO: make asynchronous
     for mut query in queries{
         // if base_dn contains a distinguished name but not a comma
         if query.base_dn != "" && query.base_dn.chars().last().unwrap() != ',' {
@@ -153,7 +155,6 @@ async fn main() -> Result<()> {
         // add dn to query base_dn search
         query.base_dn.push_str(&dn);
         // replaces strings in dynamic queries
-        // TODO: could make this more dynamic, IE check for integer inbetween '[-' and 'DAYS]' or RFC2822 time
         query.query = str::replace(&query.query, "[TARGETDN]",&dn);
         query.query = str::replace(&query.query, "[-1YEAR]",&(ad_ct - ad_year).to_string());
         query.query = str::replace(&query.query, "[-30DAYS]",&(ad_ct - ad_month).to_string());
