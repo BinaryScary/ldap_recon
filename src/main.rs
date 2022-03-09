@@ -6,7 +6,7 @@ use chrono::{DateTime, Duration, Utc};
 use clap::Parser;
 use itertools::Itertools;
 
-// TODO: rootdse, appropriate attributes for certs
+// TODO: rootdse, dn argument, appropriate attributes for certs
 
 // query struct
 // ldap query char escapes: https://tools.ietf.org/search/rfc2254#page-5
@@ -74,20 +74,22 @@ fn resultentries_to_string(rs: Vec<ldap3::ResultEntry>) -> Result<String>{
         // add attributes and values to string (sorted)
         for name in search_entry.attrs.keys().sorted(){
             // add attribute name
-            output.push_str(&format!("{}: ",name));
             match name.as_str(){
                 "pwdLastSet" | "LastPwdSet" | "accountExpires" | "LastLogon" | "LastLogonTimestamp" =>{
                     for value in &search_entry.attrs[name]{
+                        output.push_str(&format!("{}: ",name));
                         output.push_str(&adtime_to_string(value.parse::<u128>().unwrap())?);
+                        output.push_str("\n");
                     }
                 },
                 _ =>{
                     for value in &search_entry.attrs[name]{
+                        output.push_str(&format!("{}: ",name));
                         output.push_str(&value);
+                        output.push_str("\n");
                     }
                 } 
             }
-            output.push_str("\n");
         }
         output.push_str("\n");
     }
