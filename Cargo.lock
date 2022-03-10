@@ -372,6 +372,7 @@ dependencies = [
  "ansi_term",
  "chrono",
  "clap",
+ "futures",
  "itertools",
  "ldap3",
  "serde",

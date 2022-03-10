@@ -5,8 +5,8 @@ use std::{fs,time::SystemTime};
 use chrono::{DateTime, Duration, Utc};
 use clap::Parser;
 use itertools::Itertools;
+use futures::future::join_all;
 
-// TODO: make queries loop asynchronous
 // TODO: offline ldap queries with database clone, since all custom queries are sent to LDAP service cleartext, better to send wildcard query and parse offline
 // TODO: make dynamic query strings programatic, check for integer inbetween '[-' and 'DAYS]' or RFC2822 time
 // TODO: rootdse, dn argument, appropriate attributes for certs
@@ -99,7 +99,14 @@ fn resultentries_to_string(rs: Vec<ldap3::ResultEntry>) -> Result<String>{
     return Ok(output);
 }
 
-async fn run_query(ldap: &mut Ldap, query: &Query) -> Result<String>{
+async fn run_query(mut ldap: Ldap, query: Query) -> Result<String>{
+    let mut output = format!("{}:", Colour::Purple.underline().bold().paint(&query.name));
+    output.push_str("\n");
+    output.push_str(&format!("{}", Colour::Purple.paint(format!("Base: {}",&query.base_dn))));
+    output.push_str("\n");
+    output.push_str(&format!("{}", Colour::Purple.paint(format!("Query: {}",&query.query))));
+    output.push_str("\n");
+
     // run query
     let (rs, _res) = ldap.search(
         &query.base_dn,
@@ -108,9 +115,8 @@ async fn run_query(ldap: &mut Ldap, query: &Query) -> Result<String>{
         &query.attr
     ).await?.success()?;
 
-    let output = resultentries_to_string(rs)?;
+    output.push_str(&resultentries_to_string(rs).unwrap());
 
-    // post processing on results
     return Ok(output);
 }
 
@@ -130,7 +136,7 @@ async fn main() -> Result<()> {
 
     // read queries from json file
     let config = fs::File::open(args.config).expect("config file should be provided");
-    let queries: Vec<Query> = serde_json::from_reader(config).expect("config should be proper JSON");
+    let mut queries: Vec<Query> = serde_json::from_reader(config).expect("config should be proper JSON");
 
     // bind to ldap server
     let (conn, mut ldap) = LdapConnAsync::new(&format!("ldap://{}:389",args.host)).await?;
@@ -146,8 +152,9 @@ async fn main() -> Result<()> {
     let ad_year = u128::try_from(Duration::days(365).num_nanoseconds().unwrap()).unwrap() / 100;
     let ad_month = u128::try_from(Duration::days(30).num_nanoseconds().unwrap()).unwrap() / 100;
     let ad_week = u128::try_from(Duration::days(7).num_nanoseconds().unwrap()).unwrap() / 100;
-    
-    for mut query in queries{
+
+    // add base_dn and dynamic query strings
+    for mut query in &mut queries{
         // if base_dn contains a distinguished name but not a comma
         if query.base_dn != "" && query.base_dn.chars().last().unwrap() != ',' {
             query.base_dn.push_str(",");
@@ -159,13 +166,19 @@ async fn main() -> Result<()> {
         query.query = str::replace(&query.query, "[-1YEAR]",&(ad_ct - ad_year).to_string());
         query.query = str::replace(&query.query, "[-30DAYS]",&(ad_ct - ad_month).to_string());
         query.query = str::replace(&query.query, "[-7DAYS]",&(ad_ct - ad_week).to_string());
+    }
+    
+    // asynchronously run queries
+    let mut futures:Vec<_> = Vec::new();
+    for query in queries{
+        let ldap_clone = ldap.clone();
+        futures.push(run_query(ldap_clone, query));
+    }
 
-        println!("{}:", Colour::Purple.underline().bold().paint(&query.name));
-        println!("{}", Colour::Purple.paint(format!("Base: {}",&query.base_dn)));
-        println!("{}", Colour::Purple.paint(format!("Query: {}",&query.query)));
-        // println!("{}:", query.name);
-        let rs = run_query(&mut ldap, &query).await?;
-        println!("{}", rs);
+    // await futures and print results
+    let output = join_all(futures).await;
+    for result in output{
+        println!("{}", result?);
     }
 
     Ok(ldap.unbind().await?)
