@@ -26,11 +26,11 @@ struct Query{
 #[clap(author, version, about, long_about = None)]
 struct Args {
     /// server IP
-    #[clap(short, long)]
+    #[clap(short, long, value_name = "dc-ip")]
     host: String,
 
     /// ldap UPN username
-    #[clap(short, long)]
+    #[clap(short, long, value_name = "UPN")]
     user: String,
 
     /// ldap password
@@ -38,7 +38,7 @@ struct Args {
     pass: String,
 
     /// config file (Helper Strings: [TARGETDN] [-30DAYS]) (Queries cannot contain spaces) (use * for all attributes)
-    #[clap(short, long, default_value = "vulnerable.json")]
+    #[clap(short, long, default_value = "vulnerable.json", value_name = "file.json")]
     config: String,
 }
 
@@ -80,14 +80,14 @@ fn resultentries_to_string(rs: Vec<ldap3::ResultEntry>) -> Result<String>{
             match name.as_str(){
                 "pwdLastSet" | "LastPwdSet" | "accountExpires" | "LastLogon" | "LastLogonTimestamp" =>{
                     for value in &search_entry.attrs[name]{
-                        output.push_str(&format!("{}: ",name));
+                        output.push_str(&Colour::White.bold().paint(format!("{}: ",name)).to_string());
                         output.push_str(&adtime_to_string(value.parse::<u128>().unwrap())?);
                         output.push_str("\n");
                     }
                 },
                 _ =>{
                     for value in &search_entry.attrs[name]{
-                        output.push_str(&format!("{}: ",name));
+                        output.push_str(&Colour::White.bold().paint(format!("{}: ",name)).to_string());
                         output.push_str(&value);
                         output.push_str("\n");
                     }
